@@ -2,6 +2,7 @@ package subpub
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -118,5 +119,56 @@ func TestConcurrentAcces(t *testing.T) {
 		defer wg.Done()
 		_ = bus.Publish("test", "hello")
 	}()
+	wg.Wait()
+}
+
+func TestHeavyConcurrentAccess(t *testing.T) {
+	bus := NewSubPub()
+
+	var wg sync.WaitGroup
+	numPublishers := 100
+	numSubscribers := 100
+	numMessages := 100
+
+	// Создаем подписчиков
+	for i := 0; i < numSubscribers; i++ {
+		wg.Add(1)
+		go func(subID int) {
+			defer wg.Done()
+			_, err := bus.Subscribe("concurrent", func(msg interface{}) {
+			})
+			if err != nil {
+				t.Errorf("unexpected error during subscription: %v", err)
+			}
+		}(i)
+	}
+
+	// Создаем публикаторов
+	for i := 0; i < numPublishers; i++ {
+		wg.Add(1)
+		go func(pubID int) {
+			defer wg.Done()
+			for j := 0; j < numMessages; j++ {
+				err := bus.Publish("concurrent", fmt.Sprintf("message-%d-%d", pubID, j))
+				if err != nil && err.Error() != "event isn't found" {
+					t.Errorf("unexpected error during publish: %v", err)
+				}
+			}
+		}(i)
+	}
+
+	// Отписываем подписчиков
+	for i := 0; i < numSubscribers; i++ {
+		wg.Add(1)
+		go func(subID int) {
+			defer wg.Done()
+			sub, err := bus.Subscribe("concurrent", func(msg interface{}) {})
+			if err != nil {
+				t.Errorf("unexpected error during subscription: %v", err)
+			}
+			sub.Unsubscribe()
+		}(i)
+	}
+
 	wg.Wait()
 }
