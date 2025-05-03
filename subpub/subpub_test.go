@@ -1,0 +1,122 @@
+package subpub
+
+import (
+	"context"
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestSubscribeAndPublish(t *testing.T) {
+	bus := NewSubPub()
+	received := false
+	sub, err := bus.Subscribe("test", func(msg interface{}) {
+		if msg == "hello" {
+			received = true
+		}
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error during subscription: %v", err)
+	}
+
+	err = bus.Publish("test", "hello")
+	if err != nil {
+		t.Fatalf("unexpected error during publish: %v", err)
+	}
+
+	// wait for message to be processed
+	time.Sleep(100 * time.Millisecond)
+	if !received {
+		t.Fatal("exptected to receive a message but didn't")
+	}
+	sub.Unsubscribe()
+}
+
+func TestUnsubscribe(t *testing.T) {
+	bus := NewSubPub()
+	received := false
+	sub, _ := bus.Subscribe("test", func(msg interface{}) {
+		received = true
+	})
+
+	sub.Unsubscribe()
+	err := bus.Publish("test", "hello")
+	if err == nil || err.Error() != "event isn't found" {
+		t.Fatalf("expcted error 'event isn't found', got: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	if received {
+		t.Fatal("did not expect to receive a message after unsubsrcibe")
+	}
+}
+
+func TestPublishNoSubscribers(t *testing.T) {
+	bus := NewSubPub()
+	err := bus.Publish("no_subs", "hello")
+	if err == nil {
+		t.Fatal("expected rror when publishing to a subject with no subscribers")
+	}
+}
+
+func TestTimeoutClose(t *testing.T) {
+	bus := NewSubPub()
+
+	_, err := bus.Subscribe("test", func(msg interface{}) {})
+	if err != nil {
+		t.Fatalf("unexpected during subscription: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	err = bus.Close(ctx)
+	if err != nil {
+		t.Fatalf("unexpcted error during close %v", err)
+	}
+
+	// Проверяем что шина закрыта
+	err = bus.Publish("test", "hello")
+	if err != nil {
+		t.Fatalf("unexpected error when publishing to a bus by using timeout: %v", err)
+	}
+	time.Sleep(300 * time.Millisecond)
+	err = bus.Publish("test", "hello")
+	if err == nil {
+		t.Fatal("expected error when publishing to a closed bus")
+	}
+}
+
+func TestCloseWithContextCancel(t *testing.T) {
+	bus := NewSubPub()
+
+	_, err := bus.Subscribe("test", func(msg interface{}) {})
+
+	if err != nil {
+		t.Fatalf("unexpcted error during subscription: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err = bus.Close(ctx)
+	if err == nil {
+		t.Fatalf("expected error due to context cancellation, got nil")
+	}
+}
+
+func TestConcurrentAcces(t *testing.T) {
+	bus := NewSubPub()
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		_, _ = bus.Subscribe("test", func(msg interface{}) {})
+
+	}()
+	go func() {
+		defer wg.Done()
+		_ = bus.Publish("test", "hello")
+	}()
+	wg.Wait()
+}
