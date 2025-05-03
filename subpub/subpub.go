@@ -23,7 +23,7 @@ type SubPub interface {
 
 func NewSubPub() SubPub {
 	return &eventBus{
-		events: make(map[string][]MessageHandler, 0),
+		events: make(map[string][]uniqueHandler, 0),
 	}
 }
 
@@ -35,9 +35,16 @@ func (sb *subscription) Unsubscribe() {
 	sb.unsubscribe()
 }
 
+// Уникальный id обработчика для каждого подписчика
+type uniqueHandler struct {
+	id      uint64
+	execute MessageHandler
+}
+
 type eventBus struct {
+	nextId uint64
 	// хэш-таблица со списком хэндлеров для subject
-	events   map[string][]MessageHandler
+	events   map[string][]uniqueHandler
 	mx       sync.RWMutex
 	isClosed bool
 }
@@ -48,8 +55,9 @@ func (eb *eventBus) Subscribe(subject string, cb MessageHandler) (Subscription, 
 	if eb.isClosed {
 		return nil, errors.New("bus is closed")
 	}
-	eb.events[subject] = append(eb.events[subject], cb)
-	idx := len(eb.events[subject]) - 1
+	unique := uniqueHandler{id: eb.nextId, execute: cb}
+	eb.nextId += 1
+	eb.events[subject] = append(eb.events[subject], unique)
 	return &subscription{
 		unsubscribe: func() {
 			eb.mx.Lock()
@@ -57,7 +65,12 @@ func (eb *eventBus) Subscribe(subject string, cb MessageHandler) (Subscription, 
 			if eb.isClosed {
 				return
 			}
-			eb.events[subject] = append(eb.events[subject][:idx], eb.events[subject][idx+1:]...)
+			for idx, v := range eb.events[subject] {
+				if v.id == unique.id {
+					eb.events[subject] = append(eb.events[subject][:idx], eb.events[subject][idx+1:]...)
+					break
+				}
+			}
 			// Если список пуст, то удаляем ключ
 			if len(eb.events[subject]) == 0 {
 				delete(eb.events, subject)
@@ -76,11 +89,11 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 	if !isExists {
 		return errors.New("event isn't found")
 	}
-	copyHandlers := make([]MessageHandler, len(handlers))
+	copyHandlers := make([]uniqueHandler, len(handlers))
 	copy(copyHandlers, handlers)
 	go func() {
-		for _, handler := range copyHandlers {
-			handler(msg)
+		for _, unique := range copyHandlers {
+			unique.execute(msg)
 		}
 	}()
 	return nil
@@ -95,8 +108,7 @@ func (eb *eventBus) Close(ctx context.Context) error {
 	done := make(chan struct{})
 	select {
 	case <-ctx.Done():
-		eb.isClosed = true
-		eb.events = nil
+		eb.closeAndClear()
 		return ctx.Err()
 	default:
 		go func() {
@@ -104,8 +116,7 @@ func (eb *eventBus) Close(ctx context.Context) error {
 			case <-ctx.Done():
 				eb.mx.Lock()
 				defer eb.mx.Unlock()
-				eb.isClosed = true
-				eb.events = nil
+				eb.closeAndClear()
 				close(done)
 			case <-done:
 				return
@@ -113,4 +124,10 @@ func (eb *eventBus) Close(ctx context.Context) error {
 		}()
 	}
 	return nil
+}
+
+func (eb *eventBus) closeAndClear() {
+	eb.isClosed = true
+	eb.events = nil
+	eb.nextId = 0
 }
