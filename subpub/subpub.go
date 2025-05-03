@@ -22,10 +22,9 @@ type SubPub interface {
 }
 
 func NewSubPub() SubPub {
-	// return &eventBus{
-	// 	events: make(map[string][]MessageHandler, 0),
-	// }
-	panic("")
+	return &eventBus{
+		events: make(map[string][]MessageHandler, 0),
+	}
 }
 
 type subscription struct {
