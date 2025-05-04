@@ -114,6 +114,10 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 	if eb.isClosed {
 		return errors.New("bus is closed")
 	}
+	_, isExists := eb.events[subject]
+	if !isExists {
+		return errors.New("event isn't found")
+	}
 	for _, unique := range eb.events[subject] {
 		unique.Send(msg)
 	}
@@ -124,13 +128,13 @@ func (eb *eventBus) Close(ctx context.Context) error {
 	if eb.isClosed {
 		return errors.New("bus is already closed")
 	}
-	done := make(chan struct{})
 	select {
 	case <-ctx.Done():
 		eb.closeAndClear()
 		return ctx.Err()
 	default:
 		go func() {
+			done := make(chan struct{})
 			select {
 			case <-ctx.Done():
 				eb.closeAndClear()
@@ -146,6 +150,9 @@ func (eb *eventBus) Close(ctx context.Context) error {
 func (eb *eventBus) closeAndClear() {
 	eb.mx.Lock()
 	defer eb.mx.Unlock()
+	if eb.isClosed {
+		return
+	}
 	eb.isClosed = true
 	for eventName, uniqueLists := range eb.events {
 		for _, uniqueCh := range uniqueLists {
