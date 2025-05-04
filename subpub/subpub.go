@@ -91,11 +91,10 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 	}
 	copyHandlers := make([]uniqueHandler, len(handlers))
 	copy(copyHandlers, handlers)
-	go func() {
-		for _, unique := range copyHandlers {
-			unique.execute(msg)
-		}
-	}()
+
+	for _, unique := range copyHandlers {
+		go unique.execute(msg)
+	}
 	return nil
 }
 
