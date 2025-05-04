@@ -91,9 +91,14 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 	}
 	copyHandlers := make([]uniqueHandler, len(handlers))
 	copy(copyHandlers, handlers)
-
+	var wg sync.WaitGroup
 	for _, unique := range copyHandlers {
-		go unique.execute(msg)
+		wg.Wait()
+		wg.Add(1)
+		go func(unique uniqueHandler) {
+			defer wg.Done()
+			unique.execute(msg)
+		}(unique)
 	}
 	return nil
 }
