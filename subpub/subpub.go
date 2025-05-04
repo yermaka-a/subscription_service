@@ -85,15 +85,14 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 	if eb.isClosed {
 		return errors.New("bus is closed")
 	}
-	handlers, isExists := eb.events[subject]
+	_, isExists := eb.events[subject]
 	if !isExists {
 		return errors.New("event isn't found")
 	}
-	copyHandlers := make([]uniqueHandler, len(handlers))
-	copy(copyHandlers, handlers)
-
-	for _, unique := range copyHandlers {
-		go unique.execute(msg)
+	for _, unique := range eb.events[subject] {
+		go func() {
+			unique.execute(msg)
+		}()
 	}
 	return nil
 }
