@@ -135,11 +135,13 @@ func TestHeavyConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(subID int) {
 			defer wg.Done()
-			_, err := bus.Subscribe("concurrent", func(msg interface{}) {
+			sub, err := bus.Subscribe("concurrent", func(msg interface{}) {
 			})
 			if err != nil {
 				t.Errorf("unexpected error during subscription: %v", err)
 			}
+			time.Sleep(1 * time.Millisecond)
+			sub.Unsubscribe()
 		}(i)
 	}
 
@@ -166,9 +168,41 @@ func TestHeavyConcurrentAccess(t *testing.T) {
 			if err != nil {
 				t.Errorf("unexpected error during subscription: %v", err)
 			}
+			time.Sleep(1 * time.Millisecond)
 			sub.Unsubscribe()
 		}(i)
 	}
 
 	wg.Wait()
+}
+
+func TestGetAllDataWithUnsubscribes(t *testing.T) {
+	bus := NewSubPub()
+	const numSubscribers = 100
+
+	var wg sync.WaitGroup
+	var receivedArr [numSubscribers]bool
+	// Создаем подписчиков
+	for i := 0; i < numSubscribers; i++ {
+		wg.Add(1)
+		go func(subID int) {
+			defer wg.Done()
+			_, err := bus.Subscribe("concurrent", func(msg interface{}) {
+				receivedArr[subID] = true
+			})
+			if err != nil {
+				t.Errorf("unexpected error during subscription: %v", err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	bus.Publish("concurrent", struct{}{})
+
+	time.Sleep(200 * time.Millisecond)
+	for i := 0; i < numSubscribers; i++ {
+		if receivedArr[i] != true {
+			t.Fatalf("expected all true receivedArr values but by index %d got %v", i, receivedArr[i])
+		}
+	}
 }
