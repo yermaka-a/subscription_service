@@ -100,6 +100,7 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 	if !isExists {
 		return errors.New("event isn't found")
 	}
+
 	for _, unique := range eb.events[subject] {
 		unique.ch <- msg
 	}
