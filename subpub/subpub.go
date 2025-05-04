@@ -35,33 +35,15 @@ func (sb *subscription) Unsubscribe() {
 	sb.unsubscribe()
 }
 
-// Уникальный id канала для каждого подписчика
+// Уникальный id канала для каждого канала подписчика
 type uniqueCh struct {
-	mx       sync.Mutex
-	isClosed bool
-	id       uint64
-	ch       chan interface{}
-}
-
-func (uc *uniqueCh) Close() {
-	uc.mx.Lock()
-	defer uc.mx.Unlock()
-	uc.isClosed = true
-	close(uc.ch)
-}
-
-func (uc *uniqueCh) Send(msg interface{}) {
-	uc.mx.Lock()
-	defer uc.mx.Unlock()
-	if uc.isClosed {
-		return
-	}
-	uc.ch <- msg
+	id uint64
+	ch chan interface{}
 }
 
 type eventBus struct {
 	nextId uint64
-	// хэш-таблица со списком хэндлеров для subject
+	// хэш-таблица со списком каналов для subject
 	events   map[string][]*uniqueCh
 	mx       sync.RWMutex
 	isClosed bool
@@ -94,7 +76,7 @@ func (eb *eventBus) Subscribe(subject string, cb MessageHandler) (Subscription, 
 			if eb.isClosed {
 				return
 			}
-			unique.Close()
+			close(unique.ch)
 			for idx, ch := range eb.events[subject] {
 				if ch.id == unique.id {
 					eb.events[subject] = append(eb.events[subject][:idx], eb.events[subject][idx+1:]...)
@@ -119,7 +101,7 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 		return errors.New("event isn't found")
 	}
 	for _, unique := range eb.events[subject] {
-		unique.Send(msg)
+		unique.ch <- msg
 	}
 	return nil
 }
