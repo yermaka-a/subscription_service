@@ -206,6 +206,7 @@ func TestGetAllDataWithUnsubscribes(t *testing.T) {
 		}
 	}
 }
+
 func TestAsyncAccesToBus(t *testing.T) {
 	bus := NewSubPub()
 	const numSubscribers = 100
