@@ -23,7 +23,7 @@ type SubPub interface {
 
 func NewSubPub() SubPub {
 	return &eventBus{
-		events: make(map[string][]uniqueHandler, 0),
+		events: make(map[string][]*uniqueCh, 0),
 	}
 }
 
@@ -35,16 +35,34 @@ func (sb *subscription) Unsubscribe() {
 	sb.unsubscribe()
 }
 
-// Уникальный id обработчика для каждого подписчика
-type uniqueHandler struct {
-	id      uint64
-	execute MessageHandler
+// Уникальный id канала для каждого подписчика
+type uniqueCh struct {
+	mx       sync.Mutex
+	isClosed bool
+	id       uint64
+	ch       chan interface{}
+}
+
+func (uc *uniqueCh) Close() {
+	uc.mx.Lock()
+	defer uc.mx.Unlock()
+	uc.isClosed = true
+	close(uc.ch)
+}
+
+func (uc *uniqueCh) Send(msg interface{}) {
+	uc.mx.Lock()
+	defer uc.mx.Unlock()
+	if uc.isClosed {
+		return
+	}
+	uc.ch <- msg
 }
 
 type eventBus struct {
 	nextId uint64
 	// хэш-таблица со списком хэндлеров для subject
-	events   map[string][]uniqueHandler
+	events   map[string][]*uniqueCh
 	mx       sync.RWMutex
 	isClosed bool
 }
@@ -55,9 +73,20 @@ func (eb *eventBus) Subscribe(subject string, cb MessageHandler) (Subscription, 
 	if eb.isClosed {
 		return nil, errors.New("bus is closed")
 	}
-	unique := uniqueHandler{id: eb.nextId, execute: cb}
-	eb.nextId += 1
+
+	eventCh := make(chan interface{}, 1)
+	go func(c <-chan interface{}) {
+		for {
+			msg, ok := <-c
+			if !ok {
+				break
+			}
+			cb(msg)
+		}
+	}(eventCh)
+	unique := &uniqueCh{id: eb.nextId, ch: eventCh}
 	eb.events[subject] = append(eb.events[subject], unique)
+	eb.nextId += 1
 	return &subscription{
 		unsubscribe: func() {
 			eb.mx.Lock()
@@ -65,10 +94,10 @@ func (eb *eventBus) Subscribe(subject string, cb MessageHandler) (Subscription, 
 			if eb.isClosed {
 				return
 			}
-			for idx, v := range eb.events[subject] {
-				if v.id == unique.id {
+			unique.Close()
+			for idx, ch := range eb.events[subject] {
+				if ch.id == unique.id {
 					eb.events[subject] = append(eb.events[subject][:idx], eb.events[subject][idx+1:]...)
-					break
 				}
 			}
 			// Если список пуст, то удаляем ключ
@@ -85,23 +114,13 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 	if eb.isClosed {
 		return errors.New("bus is closed")
 	}
-	handlers, isExists := eb.events[subject]
-	if !isExists {
-		return errors.New("event isn't found")
+	for _, unique := range eb.events[subject] {
+		unique.Send(msg)
 	}
-	copyHandlers := make([]uniqueHandler, len(handlers))
-	copy(copyHandlers, handlers)
-	go func() {
-		for _, unique := range copyHandlers {
-			unique.execute(msg)
-		}
-	}()
 	return nil
 }
 
 func (eb *eventBus) Close(ctx context.Context) error {
-	eb.mx.Lock()
-	defer eb.mx.Unlock()
 	if eb.isClosed {
 		return errors.New("bus is already closed")
 	}
@@ -114,8 +133,6 @@ func (eb *eventBus) Close(ctx context.Context) error {
 		go func() {
 			select {
 			case <-ctx.Done():
-				eb.mx.Lock()
-				defer eb.mx.Unlock()
 				eb.closeAndClear()
 				close(done)
 			case <-done:
@@ -127,7 +144,15 @@ func (eb *eventBus) Close(ctx context.Context) error {
 }
 
 func (eb *eventBus) closeAndClear() {
+	eb.mx.Lock()
+	defer eb.mx.Unlock()
 	eb.isClosed = true
+	for eventName, uniqueLists := range eb.events {
+		for _, uniqueCh := range uniqueLists {
+			close(uniqueCh.ch)
+		}
+		delete(eb.events, eventName)
+	}
 	eb.events = nil
-	eb.nextId = 0
+
 }

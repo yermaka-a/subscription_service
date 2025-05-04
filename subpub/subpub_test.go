@@ -128,7 +128,7 @@ func TestHeavyConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	numPublishers := 100
 	numSubscribers := 100
-	numMessages := 100
+	numMessages := 1000
 
 	// Создаем подписчиков
 	for i := 0; i < numSubscribers; i++ {
