@@ -206,3 +206,50 @@ func TestGetAllDataWithUnsubscribes(t *testing.T) {
 		}
 	}
 }
+func TestAsyncAccesToBus(t *testing.T) {
+	bus := NewSubPub()
+	const numSubscribers = 100
+
+	var wg sync.WaitGroup
+	var receivedArr [numSubscribers]bool
+	subs := make([]Subscription, numSubscribers)
+	// Создаем подписчиков
+	for i := 0; i < numSubscribers; i++ {
+		wg.Add(1)
+		go func(subID int) {
+			defer wg.Done()
+			sub, err := bus.Subscribe("concurrent", func(msg interface{}) {
+				receivedArr[subID] = true
+			})
+			if err != nil {
+				t.Errorf("unexpected error during subscription: %v", err)
+			}
+			subs[subID] = sub
+		}(i)
+	}
+	wg.Wait()
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < numSubscribers/2; i++ {
+			subs[i].Unsubscribe()
+		}
+	}()
+	// time.Sleep(1 * time.Millisecond)
+	go func() {
+		defer wg.Done()
+		bus.Publish("concurrent", struct{}{})
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	for i := numSubscribers / 2; i < numSubscribers; i++ {
+		if receivedArr[i] != true {
+			t.Fatalf("expected all true receivedArr values but by index %d got %v", i, receivedArr[i])
+		}
+	}
+	for i := 0; i < numSubscribers/2; i++ {
+		if receivedArr[i] == false || receivedArr[i] {
+			t.Logf("receivedArrby index %d == %v", i, receivedArr[i])
+		}
+	}
+}
