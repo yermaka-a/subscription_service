@@ -128,18 +128,20 @@ func TestHeavyConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	numPublishers := 100
 	numSubscribers := 100
-	numMessages := 100
+	numMessages := 1000
 
 	// Создаем подписчиков
 	for i := 0; i < numSubscribers; i++ {
 		wg.Add(1)
 		go func(subID int) {
 			defer wg.Done()
-			_, err := bus.Subscribe("concurrent", func(msg interface{}) {
+			sub, err := bus.Subscribe("concurrent", func(msg interface{}) {
 			})
 			if err != nil {
 				t.Errorf("unexpected error during subscription: %v", err)
 			}
+			time.Sleep(1 * time.Millisecond)
+			sub.Unsubscribe()
 		}(i)
 	}
 
