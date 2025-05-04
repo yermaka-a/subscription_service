@@ -100,22 +100,18 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 }
 
 func (eb *eventBus) Close(ctx context.Context) error {
-	eb.mx.Lock()
-	defer eb.mx.Unlock()
 	if eb.isClosed {
 		return errors.New("bus is already closed")
 	}
-	done := make(chan struct{})
 	select {
 	case <-ctx.Done():
 		eb.closeAndClear()
 		return ctx.Err()
 	default:
 		go func() {
+			done := make(chan struct{})
 			select {
 			case <-ctx.Done():
-				eb.mx.Lock()
-				defer eb.mx.Unlock()
 				eb.closeAndClear()
 				close(done)
 			case <-done:
@@ -127,6 +123,11 @@ func (eb *eventBus) Close(ctx context.Context) error {
 }
 
 func (eb *eventBus) closeAndClear() {
+	eb.mx.Lock()
+	defer eb.mx.Unlock()
+	if eb.isClosed {
+		return
+	}
 	eb.isClosed = true
 	eb.events = nil
 	eb.nextId = 0
