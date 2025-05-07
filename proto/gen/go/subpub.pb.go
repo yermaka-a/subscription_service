@@ -4,7 +4,7 @@
 // 	protoc        v6.30.2
 // source: subpub.proto
 
-package ___
+package pbv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -177,9 +177,9 @@ const file_subpub_proto_rawDesc = "" +
 	"\x04data\x18\x02 \x01(\tR\x04data\"\x1b\n" +
 	"\x05Event\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\tR\x04data2{\n" +
-	"\x06SubPub\x126\n" +
+	"\x06PubSub\x126\n" +
 	"\tSubscribe\x12\x18.subpub.SubscribeRequest\x1a\r.subpub.Event0\x01\x129\n" +
-	"\aPublish\x12\x16.subpub.PublishRequest\x1a\x16.google.protobuf.EmptyB\x05Z\x03../b\x06proto3"
+	"\aPublish\x12\x16.subpub.PublishRequest\x1a\x16.google.protobuf.EmptyB\x10Z\x0epubsub.v1;pbv1b\x06proto3"
 
 var (
 	file_subpub_proto_rawDescOnce sync.Once
@@ -201,10 +201,10 @@ var file_subpub_proto_goTypes = []any{
 	(*emptypb.Empty)(nil),    // 3: google.protobuf.Empty
 }
 var file_subpub_proto_depIdxs = []int32{
-	0, // 0: subpub.SubPub.Subscribe:input_type -> subpub.SubscribeRequest
-	1, // 1: subpub.SubPub.Publish:input_type -> subpub.PublishRequest
-	2, // 2: subpub.SubPub.Subscribe:output_type -> subpub.Event
-	3, // 3: subpub.SubPub.Publish:output_type -> google.protobuf.Empty
+	0, // 0: subpub.PubSub.Subscribe:input_type -> subpub.SubscribeRequest
+	1, // 1: subpub.PubSub.Publish:input_type -> subpub.PublishRequest
+	2, // 2: subpub.PubSub.Subscribe:output_type -> subpub.Event
+	3, // 3: subpub.PubSub.Publish:output_type -> google.protobuf.Empty
 	2, // [2:4] is the sub-list for method output_type
 	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name

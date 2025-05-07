@@ -2,11 +2,11 @@ syntax = "proto3";
 
 package subpub;
 
-option go_package="../";
+option go_package="pubsub.v1;pbv1";
 
 import "google/protobuf/empty.proto";
 
-service SubPub{
+service PubSub{
     // Подписка (сервер отправляет потой событий)
     rpc Subscribe(SubscribeRequest) returns (stream Event);
     // Публикация (классический запрос-ответ)

@@ -4,7 +4,7 @@
 // - protoc             v6.30.2
 // source: subpub.proto
 
-package ___
+package pbv1
 
 import (
 	context "context"
@@ -20,31 +20,31 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SubPub_Subscribe_FullMethodName = "/subpub.SubPub/Subscribe"
-	SubPub_Publish_FullMethodName   = "/subpub.SubPub/Publish"
+	PubSub_Subscribe_FullMethodName = "/subpub.PubSub/Subscribe"
+	PubSub_Publish_FullMethodName   = "/subpub.PubSub/Publish"
 )
 
-// SubPubClient is the client API for SubPub service.
+// PubSubClient is the client API for PubSub service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type SubPubClient interface {
+type PubSubClient interface {
 	// Подписка (сервер отправляет потой событий)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error)
 	// Публикация (классический запрос-ответ)
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type subPubClient struct {
+type pubSubClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewSubPubClient(cc grpc.ClientConnInterface) SubPubClient {
-	return &subPubClient{cc}
+func NewPubSubClient(cc grpc.ClientConnInterface) PubSubClient {
+	return &pubSubClient{cc}
 }
 
-func (c *subPubClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error) {
+func (c *pubSubClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SubPub_ServiceDesc.Streams[0], SubPub_Subscribe_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &PubSub_ServiceDesc.Streams[0], PubSub_Subscribe_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -59,108 +59,108 @@ func (c *subPubClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SubPub_SubscribeClient = grpc.ServerStreamingClient[Event]
+type PubSub_SubscribeClient = grpc.ServerStreamingClient[Event]
 
-func (c *subPubClient) Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *pubSubClient) Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, SubPub_Publish_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, PubSub_Publish_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// SubPubServer is the server API for SubPub service.
-// All implementations must embed UnimplementedSubPubServer
+// PubSubServer is the server API for PubSub service.
+// All implementations must embed UnimplementedPubSubServer
 // for forward compatibility.
-type SubPubServer interface {
+type PubSubServer interface {
 	// Подписка (сервер отправляет потой событий)
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error
 	// Публикация (классический запрос-ответ)
 	Publish(context.Context, *PublishRequest) (*emptypb.Empty, error)
-	mustEmbedUnimplementedSubPubServer()
+	mustEmbedUnimplementedPubSubServer()
 }
 
-// UnimplementedSubPubServer must be embedded to have
+// UnimplementedPubSubServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedSubPubServer struct{}
+type UnimplementedPubSubServer struct{}
 
-func (UnimplementedSubPubServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error {
+func (UnimplementedPubSubServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
 }
-func (UnimplementedSubPubServer) Publish(context.Context, *PublishRequest) (*emptypb.Empty, error) {
+func (UnimplementedPubSubServer) Publish(context.Context, *PublishRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Publish not implemented")
 }
-func (UnimplementedSubPubServer) mustEmbedUnimplementedSubPubServer() {}
-func (UnimplementedSubPubServer) testEmbeddedByValue()                {}
+func (UnimplementedPubSubServer) mustEmbedUnimplementedPubSubServer() {}
+func (UnimplementedPubSubServer) testEmbeddedByValue()                {}
 
-// UnsafeSubPubServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to SubPubServer will
+// UnsafePubSubServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PubSubServer will
 // result in compilation errors.
-type UnsafeSubPubServer interface {
-	mustEmbedUnimplementedSubPubServer()
+type UnsafePubSubServer interface {
+	mustEmbedUnimplementedPubSubServer()
 }
 
-func RegisterSubPubServer(s grpc.ServiceRegistrar, srv SubPubServer) {
-	// If the following call pancis, it indicates UnimplementedSubPubServer was
+func RegisterPubSubServer(s grpc.ServiceRegistrar, srv PubSubServer) {
+	// If the following call pancis, it indicates UnimplementedPubSubServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&SubPub_ServiceDesc, srv)
+	s.RegisterService(&PubSub_ServiceDesc, srv)
 }
 
-func _SubPub_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _PubSub_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(SubPubServer).Subscribe(m, &grpc.GenericServerStream[SubscribeRequest, Event]{ServerStream: stream})
+	return srv.(PubSubServer).Subscribe(m, &grpc.GenericServerStream[SubscribeRequest, Event]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SubPub_SubscribeServer = grpc.ServerStreamingServer[Event]
+type PubSub_SubscribeServer = grpc.ServerStreamingServer[Event]
 
-func _SubPub_Publish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _PubSub_Publish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PublishRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SubPubServer).Publish(ctx, in)
+		return srv.(PubSubServer).Publish(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SubPub_Publish_FullMethodName,
+		FullMethod: PubSub_Publish_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SubPubServer).Publish(ctx, req.(*PublishRequest))
+		return srv.(PubSubServer).Publish(ctx, req.(*PublishRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// SubPub_ServiceDesc is the grpc.ServiceDesc for SubPub service.
+// PubSub_ServiceDesc is the grpc.ServiceDesc for PubSub service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var SubPub_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "subpub.SubPub",
-	HandlerType: (*SubPubServer)(nil),
+var PubSub_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "subpub.PubSub",
+	HandlerType: (*PubSubServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Publish",
-			Handler:    _SubPub_Publish_Handler,
+			Handler:    _PubSub_Publish_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Subscribe",
-			Handler:       _SubPub_Subscribe_Handler,
+			Handler:       _PubSub_Subscribe_Handler,
 			ServerStreams: true,
 		},
 	},
