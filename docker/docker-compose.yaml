@@ -1,0 +1,8 @@
+services:
+  sub_service:
+    restart: always
+    build: "../sub_service"
+    ports:
+      - ${GRPC_PORT}:${GRPC_PORT}
+    environment:
+      GRPC_PORT: ${GRPC_PORT}
