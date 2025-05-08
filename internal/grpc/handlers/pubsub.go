@@ -27,8 +27,12 @@ func Register(gRPC *grpc.Server, log *slog.Logger) {
 func (s *serverAPI) Subscribe(req *pbv1.SubscribeRequest, stream pbv1.PubSub_SubscribeServer) error {
 	const op = "handlers.Subscribe"
 	log := s.log.With(slog.String("op", op))
-	log.With(slog.String("msg", fmt.Sprintf("received subscription request for key: %s", req.Key)))
-	subscription, err := s.eventBus.Subscribe(req.Key, func(msg interface{}) {
+	if req.GetKey() == "" {
+		return status.Error(codes.InvalidArgument, "key must not be empty")
+	}
+
+	log.With(slog.String("msg", fmt.Sprintf("received subscription request for key: %s", req.GetKey())))
+	subscription, err := s.eventBus.Subscribe(req.GetKey(), func(msg interface{}) {
 		if err := stream.Send(&pbv1.Event{Data: msg.(string)}); err != nil {
 			log.Error("error sending message to stream", slog.String("msg", err.Error()))
 		}
@@ -46,7 +50,10 @@ func (s *serverAPI) Subscribe(req *pbv1.SubscribeRequest, stream pbv1.PubSub_Sub
 func (s *serverAPI) Publish(ctx context.Context, req *pbv1.PublishRequest) (*emptypb.Empty, error) {
 	const op = "handlers.Publish"
 	log := s.log.With("op", op)
-	err := s.eventBus.Publish(req.Key, req.Data)
+	if req.GetKey() == "" {
+		return nil, status.Error(codes.InvalidArgument, "key must not be empty")
+	}
+	err := s.eventBus.Publish(req.GetKey(), req.GetData())
 	if err != nil {
 		if err.Error() == "event isn't found" {
 			return nil, status.Error(codes.NotFound, "no subscribers for this key")
