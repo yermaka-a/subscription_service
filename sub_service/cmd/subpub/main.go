@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,7 +12,6 @@ import (
 
 func main() {
 	cfg := config.MustLoad()
-	fmt.Print(cfg)
 
 	log := logger.SetupLogger()
 
