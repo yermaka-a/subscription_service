@@ -247,9 +247,9 @@ func TestAsyncAccesToBus(t *testing.T) {
 			t.Fatalf("expected all true receivedArr values but by index %d got %v", i, receivedArr[i])
 		}
 	}
-	for i := 0; i < numSubscribers/2; i++ {
-		if receivedArr[i] == false || receivedArr[i] {
-			t.Logf("receivedArrby index %d == %v", i, receivedArr[i])
-		}
-	}
+	// for i := 0; i < numSubscribers/2; i++ {
+	// 	if receivedArr[i] == false || receivedArr[i] {
+	// 		// t.Logf("receivedArrby index %d == %v", i, receivedArr[i])
+	// 	}
+	// }
 }

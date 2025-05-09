@@ -23,7 +23,7 @@ type SubPub interface {
 
 func NewSubPub() SubPub {
 	return &eventBus{
-		events: make(map[string][]*uniqueCh, 0),
+		events: make(map[string]*uniqueChs, 0),
 	}
 }
 
@@ -37,14 +37,45 @@ func (sb *subscription) Unsubscribe() {
 
 // Уникальный id канала для каждого канала подписчика
 type uniqueCh struct {
-	id uint64
-	ch chan interface{}
+	id   uint64
+	next *uniqueCh
+	ch   chan interface{}
+}
+
+type uniqueChs struct {
+	head *uniqueCh
+}
+
+func (uChs *uniqueChs) push_back(uCh *uniqueCh) {
+	if uChs.head == nil {
+		uChs.head = uCh
+		return
+	}
+	for next := uChs.head; ; next = next.next {
+		if next.next == nil {
+			next.next = uCh
+			return
+		}
+	}
+}
+
+func (uChs *uniqueChs) pop(id uint64) {
+	if uChs.head.id == id {
+		uChs.head = uChs.head.next
+		return
+	}
+	for next := uChs.head; next != nil; next = next.next {
+		if next.next.id == id {
+			next.next = next.next.next
+			return
+		}
+	}
 }
 
 type eventBus struct {
 	nextId uint64
 	// хэш-таблица со списком каналов для subject
-	events   map[string][]*uniqueCh
+	events   map[string]*uniqueChs
 	mx       sync.RWMutex
 	isClosed bool
 }
@@ -67,7 +98,10 @@ func (eb *eventBus) Subscribe(subject string, cb MessageHandler) (Subscription, 
 		}
 	}(eventCh)
 	unique := &uniqueCh{id: eb.nextId, ch: eventCh}
-	eb.events[subject] = append(eb.events[subject], unique)
+	if eb.events[subject] == nil {
+		eb.events[subject] = &uniqueChs{}
+	}
+	eb.events[subject].push_back(unique)
 	eb.nextId += 1
 	return &subscription{
 		unsubscribe: func() {
@@ -77,13 +111,10 @@ func (eb *eventBus) Subscribe(subject string, cb MessageHandler) (Subscription, 
 				return
 			}
 			close(unique.ch)
-			for idx, ch := range eb.events[subject] {
-				if ch.id == unique.id {
-					eb.events[subject] = append(eb.events[subject][:idx], eb.events[subject][idx+1:]...)
-				}
-			}
+			eb.events[subject].pop(unique.id)
+
 			// Если список пуст, то удаляем ключ
-			if len(eb.events[subject]) == 0 {
+			if eb.events[subject].head == nil {
 				delete(eb.events, subject)
 			}
 		},
@@ -100,8 +131,8 @@ func (eb *eventBus) Publish(subject string, msg interface{}) error {
 	if !isExists {
 		return errors.New("event isn't found")
 	}
-	for _, unique := range eb.events[subject] {
-		unique.ch <- msg
+	for next := eb.events[subject].head; next != nil; next = next.next {
+		next.ch <- msg
 	}
 	return nil
 }
@@ -137,8 +168,8 @@ func (eb *eventBus) closeAndClear() {
 	}
 	eb.isClosed = true
 	for eventName, uniqueLists := range eb.events {
-		for _, uniqueCh := range uniqueLists {
-			close(uniqueCh.ch)
+		for next := uniqueLists.head; next != nil; next = next.next {
+			close(next.ch)
 		}
 		delete(eb.events, eventName)
 	}
